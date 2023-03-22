@@ -13,24 +13,30 @@ use std::{
 };
 
 fn main() {
-    let mut program_arguments = env::args();
+    let program_arguments = env::args().collect::<Vec<String>>();
     if 3 != program_arguments.len() {
-        eprintln!("Usage: <source> <destination>");
+        eprintln!("Usage: cargo run <source> <destination>");
         return;
     }
 
     // input file & reader initialization
-    let source_file_path = program_arguments.nth(1)
-        .expect("Cannot get the source file path from the arguments!");
-    let source_file = File::open(&source_file_path)
-        .expect("Cannot open the source file!");
+    let source_file = match File::open(&program_arguments[1]) {
+        Ok(file) => file,
+        Err(error) => {
+            eprintln!("Cannot open the source file because of an error: {}.", error);
+            return;
+        }
+    };
     let mut input_reader = io::BufReader::new(source_file);
 
     // output file initialization
-    let output_file_path = program_arguments.nth(0)
-        .expect("Cannot get the output file path from the program arguments!");
-    let output_file = File::create(&output_file_path)
-       .expect("Cannot create the output file!");
+    let output_file = match File::create(&program_arguments[2]) {
+        Ok(file) => file,
+        Err(error) => {
+            eprintln!("Cannot open the output file because of an error: {}.", error);
+            return;
+        }
+    };
 
     // encoder initialization
     let mut encoder = GzEncoder::new(output_file, Compression::default());
@@ -38,11 +44,18 @@ fn main() {
     // start encoding
     let start_time = Instant::now();
 
-    io::copy(&mut input_reader, &mut encoder)
-        .expect("Cannot copy the content of the source file to the encoder!");
+    if let Err(error) = io::copy(&mut input_reader, &mut encoder) {
+        eprintln!("Cannot copy the content of the source file to the encoder because of an error: {}.", error);
+        return;
+    }
 
-    let output = encoder.finish()
-        .expect("Cannot finish the encoding!");
+    let output_file = match encoder.finish() {
+        Ok(output) => output,
+        Err(error) => {
+            eprintln!("Cannot finish the encoding because of an error: {}.", error);
+            return;
+        }
+    };
 
     // finished the encoding & printing the results
 
@@ -58,6 +71,6 @@ fn main() {
 
     println!(
         "Output file size: {:?}",
-        output.metadata().unwrap().len()
+        output_file.metadata().unwrap().len()
     );
 }
